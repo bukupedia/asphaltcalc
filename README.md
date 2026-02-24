@@ -6,7 +6,7 @@ Aplikasi ini digunakan untuk menghitung volume pekerjaan aspal jalan baik sebelu
 
 ## Tujuan
 
-Aplikasi dibuat untuk membantu tim Surveyor (Juru Ukur) agar proses perhitungan bisa lebih cepat (Quick Count) dapat dilakukan langsung di lapangan tanpa perlu membuka PC dan Excel terlebih dahulu. Data yang diinput pada aplikasi bisa langsung di export ke Excel sebagai laporan hasil pengukuran, meskipun demikian Excel mungkin masih diperlukan untuk merapihkan / memformat data jika ingin digunakan untuk keperluan lain.
+Aplikasi dibuat untuk membantu tim Surveyor (Juru Ukur) untuk mendapatkan hasil perhitungan pengukuran yang lebih cepat tanpa perlu membuka PC dan Excel terlebih dahulu. Data yang diinput pada aplikasi bisa langsung di export ke Excel sebagai laporan hasil pengukuran, meskipun demikian Excel mungkin masih diperlukan untuk merapihkan / memformat data jika ingin digunakan untuk keperluan lain.
 
 ## License
 
