@@ -1,5 +1,5 @@
 /*
-	AsphaltCalc v1 rc1
+	AsphaltCalc v1-rc1
     by Arif Budiman <arifbudiman@outlook.com>
 
 	License: Personal use only
