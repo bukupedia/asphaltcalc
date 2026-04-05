@@ -11,3 +11,4 @@ Aplikasi dibuat untuk membantu tim Surveyor (Juru Ukur) untuk mendapatkan hasil 
 ## Change Log
 
 - 2026-02-23 : Public release v1-rc1
+- 2026-04-05 : v1-rc2 (Improve UX, Security and Fix Potential Issues)
