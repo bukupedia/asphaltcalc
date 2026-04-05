@@ -3,10 +3,11 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>AsphaltCalc v1-rc1</title>
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://unpkg.com; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; connect-src 'self' https://cdn.jsdelivr.net https://unpkg.com; img-src 'self' data:; font-src 'self' https://cdn.jsdelivr.net;">
+  <title>AsphaltCalc v1-rc2</title>
 
   <!-- Bootstrap CSS -->
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" crossorigin="anonymous">
 
   <!-- Custom CSS -->
   <link rel="stylesheet" href="css/style.css">
@@ -33,17 +34,17 @@
             </div>
           </div>
 
-          <form id="hotmixForm" novalidate>
+          <form id="hotmixForm" novalidate aria-label="Formulir perhitungan hotmix">
 
           <!-- Informasi Proyek -->
 <div class="row g-3 mb-4">
   <div class="col-md-6">
-    <label class="form-label">Nama Proyek</label>
-    <input type="text" id="namaProyek" class="form-control" placeholder="Contoh: Pemeliharaan Berkala Jalan TA.2026 Kec. Kembangan">
+    <label for="namaProyek" class="form-label">Nama Proyek</label>
+    <input type="text" id="namaProyek" class="form-control" placeholder="Contoh: Pemeliharaan Berkala Jalan TA.2026 Kec. Kembangan" aria-required="false">
   </div>
   <div class="col-md-6">
-    <label class="form-label">Lokasi</label>
-    <input type="text" id="lokasiProyek" class="form-control" placeholder="Contoh: Jl. Kembang Wangi Kel. Kembangan Selatan">
+    <label for="lokasiProyek" class="form-label">Lokasi</label>
+    <input type="text" id="lokasiProyek" class="form-control" placeholder="Contoh: Jl. Kembang Wangi Kel. Kembangan Selatan" aria-required="false">
   </div>
 </div>
 
@@ -185,7 +186,7 @@
           </form>
 
           <!-- HASIL -->
-          <div id="hasilBox" class="mt-4 d-none">
+          <div id="hasilBox" class="mt-4 d-none" role="region" aria-live="polite" aria-label="Hasil perhitungan">
             <hr>
             <h5 class="mb-3">Hasil</h5>
             <div class="row">
