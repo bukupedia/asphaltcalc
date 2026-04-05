@@ -1,9 +1,183 @@
 /*
-	AsphaltCalc v1-rc1
+	AsphaltCalc v1-rc2
     by Arif Budiman <arifbudiman@outlook.com>
 
 	License: Personal use only
 */
+
+// =============================
+// SECURITY: Input sanitization to prevent XSS
+// =============================
+function escapeHtml(str) {
+    if (str === null || str === undefined) return "";
+    const s = String(str);
+    return s
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+}
+
+// Sanitize value for use in HTML attributes (single-quote safe)
+function escapeAttr(str) {
+    if (str === null || str === undefined) return "";
+    return String(str).replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+}
+
+// Sanitize for Excel export (prevent formula injection)
+function sanitizeForExport(str) {
+    if (str === null || str === undefined) return "";
+    const s = String(str);
+    // Prevent formula injection by prefixing with single quote
+    if (s.length > 0 && /^[+\-=@^$\t\r\n]/.test(s.charAt(0))) {
+        return "'" + s;
+    }
+    return s;
+}
+
+// =============================
+// STORAGE: LocalStorage for data persistence
+// =============================
+const STORAGE_KEY = "asphaltcalc_data";
+
+function saveToStorage() {
+    try {
+        const data = {
+            namaProyek: document.getElementById("namaProyek").value,
+            lokasiProyek: document.getElementById("lokasiProyek").value,
+            luasManual: document.getElementById("luasManual").value,
+            bj: bjInput.value,
+            tebal: tebalInput.value,
+            waste: wasteInput.value,
+            mode: modeLuas.checked ? "luas" : "pr",
+            segRows: [],
+            blockRows: []
+        };
+        
+        // Save segment rows
+        segTbody.querySelectorAll("tr").forEach(tr => {
+            data.segRows.push({
+                profilAwal: tr.cells[1].querySelector("input")?.value || "",
+                profilAkhir: tr.cells[2].querySelector("input")?.value || "",
+                keterangan: tr.cells[3].querySelector("input")?.value || "",
+                l1: tr.querySelector(".seg-l1")?.value || "",
+                l2: tr.querySelector(".seg-l2")?.value || "",
+                p: tr.querySelector(".seg-p")?.value || ""
+            });
+        });
+        
+        // Save blockout rows
+        blockTbody.querySelectorAll("tr").forEach(tr => {
+            data.blockRows.push({
+                keterangan: tr.cells[1].querySelector("input")?.value || "",
+                p: tr.querySelector(".block-p")?.value || "",
+                l: tr.querySelector(".block-l")?.value || ""
+            });
+        });
+        
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    } catch (e) {
+        console.warn("Failed to save to localStorage:", e);
+    }
+}
+
+function loadFromStorage() {
+    try {
+        const stored = localStorage.getItem(STORAGE_KEY);
+        if (!stored) return;
+        
+        const data = JSON.parse(stored);
+        if (!data) return;
+        
+        // Restore common inputs
+        if (data.namaProyek) document.getElementById("namaProyek").value = data.namaProyek;
+        if (data.lokasiProyek) document.getElementById("lokasiProyek").value = data.lokasiProyek;
+        if (data.luasManual) document.getElementById("luasManual").value = data.luasManual;
+        if (data.bj) bjInput.value = data.bj;
+        if (data.tebal) tebalInput.value = data.tebal;
+        if (data.waste) wasteInput.value = data.waste;
+        
+        // Restore mode
+        if (data.mode === "pr") {
+            modePR.checked = true;
+            setMode("pr");
+        } else {
+            modeLuas.checked = true;
+            setMode("luas");
+        }
+        
+        // Restore segment rows
+        if (data.segRows && data.segRows.length > 0) {
+            segTbody.innerHTML = "";
+            segIndex = 0;
+            data.segRows.forEach(rowData => {
+                createSegRow(rowData);
+            });
+        }
+        
+        // Restore blockout rows (only in PR mode)
+        if (data.blockRows && data.blockRows.length > 0 && modePR.checked) {
+            blockTbody.innerHTML = "";
+            blockIndex = 0;
+            data.blockRows.forEach(rowData => {
+                createBlockRowWithData(rowData);
+            });
+        }
+        
+    } catch (e) {
+        console.warn("Failed to load from localStorage:", e);
+    }
+}
+
+function createBlockRowWithData(rowData) {
+    blockIndex += 1;
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+        <td class="small text-muted">${blockIndex}</td>
+        <td><input type="text" class="form-control form-control-sm" placeholder="Contoh: Manhole" value="${escapeHtml(rowData.keterangan || "")}"></td>
+        <td><input type="text" inputmode="decimal" class="form-control form-control-sm numeric-input block-p" placeholder="Panjang" value="${escapeAttr(rowData.p || "")}"></td>
+        <td><input type="text" inputmode="decimal" class="form-control form-control-sm numeric-input block-l" placeholder="Lebar" value="${escapeAttr(rowData.l || "")}"></td>
+        <td class="text-end block-luas small">0.00</td>
+        <td class="text-center">
+            <button type="button" class="btn btn-sm btn-outline-danger btn-remove-block">&times;</button>
+        </td>
+    `;
+    blockTbody.appendChild(tr);
+    const inputP = tr.querySelector(".block-p");
+    const inputL = tr.querySelector(".block-l");
+    function updateBlockRow() {
+        const p = parseFlexibleNumber(inputP.value);
+        const l = parseFlexibleNumber(inputL.value);
+        const luas = (!isNaN(p) && !isNaN(l)) ? p * l : NaN;
+        tr.querySelector(".block-luas").textContent = isNaN(luas) ? "-" : formatDisplay(luas, 4);
+        updateTotalBlock();
+        autoCalculatePreview();
+    }
+    inputP.addEventListener("input", updateBlockRow);
+    inputL.addEventListener("input", updateBlockRow);
+    tr.querySelector(".btn-remove-block").addEventListener("click", () => {
+        tr.remove();
+        updateTotalBlock();
+        autoCalculatePreview();
+    });
+    updateBlockRow();
+}
+
+function clearStorage() {
+    try {
+        localStorage.removeItem(STORAGE_KEY);
+    } catch (e) {
+        console.warn("Failed to clear localStorage:", e);
+    }
+}
+
+// Auto-save on input changes
+document.addEventListener("input", function(e) {
+    if (e.target.tagName === "INPUT") {
+        saveToStorage();
+    }
+});
 
 const modeLuas = document.getElementById("modeLuas");
 const modePR = document.getElementById("modePR");
@@ -82,14 +256,22 @@ function createSegRow(data = {}) {
     const tr = document.createElement("tr");
     tr.dataset.idx = segIndex;
 
+    // Sanitize user inputs to prevent XSS
+    const safeProfilAwal = escapeHtml(data.profilAwal || "");
+    const safeProfilAkhir = escapeHtml(data.profilAkhir || "");
+    const safeKeterangan = escapeHtml(data.keterangan || "");
+    const safeL1 = escapeAttr(data.l1 || "");
+    const safeL2 = escapeAttr(data.l2 || "");
+    const safeP = escapeAttr(data.p || "");
+
     const idxCell = `<td class="small text-muted">${segIndex}</td>`;
-    const profilAwal = `<td><input type="text" class="form-control form-control-sm" placeholder="PR..." value="${data.profilAwal||""}"></td>`;
-    const profilAkhir = `<td><input type="text" class="form-control form-control-sm" placeholder="PR..." value="${data.profilAkhir||""}"></td>`;
-    const keterangan = `<td><input type="text" class="form-control form-control-sm" placeholder="Keterangan..." value="${data.keterangan||""}"></td>`;
-    const l1 = `<td><input type="text" inputmode="decimal" class="form-control form-control-sm numeric-input seg-l1" value="${data.l1||""}" placeholder="L1"></td>`;
-    const l2 = `<td><input type="text" inputmode="decimal" class="form-control form-control-sm numeric-input seg-l2" value="${data.l2||""}" placeholder="L2"></td>`;
+    const profilAwal = `<td><input type="text" class="form-control form-control-sm" placeholder="PR..." value="${safeProfilAwal}"></td>`;
+    const profilAkhir = `<td><input type="text" class="form-control form-control-sm" placeholder="PR..." value="${safeProfilAkhir}"></td>`;
+    const keterangan = `<td><input type="text" class="form-control form-control-sm" placeholder="Keterangan..." value="${safeKeterangan}"></td>`;
+    const l1 = `<td><input type="text" inputmode="decimal" class="form-control form-control-sm numeric-input seg-l1" value="${safeL1}" placeholder="L1"></td>`;
+    const l2 = `<td><input type="text" inputmode="decimal" class="form-control form-control-sm numeric-input seg-l2" value="${safeL2}" placeholder="L2"></td>`;
     const avg = `<td class="text-end seg-avg small">0.00</td>`;
-    const p = `<td><input type="text" inputmode="decimal" class="form-control form-control-sm numeric-input seg-p" value="${data.p||""}" placeholder="P"></td>`;
+    const p = `<td><input type="text" inputmode="decimal" class="form-control form-control-sm numeric-input seg-p" value="${safeP}" placeholder="P"></td>`;
     const luas = `<td class="text-end seg-luas small">0.00</td>`;
     const aksi = `<td class="text-center"><button type="button" class="btn btn-sm btn-outline-danger btn-remove-row" title="Hapus"><span>&times;</span></button></td>`;
 
@@ -220,22 +402,42 @@ createSegRow({profilAwal: "PR0", profilAkhir: "PR1", l1: "", l2: "", p: ""});
 // Buttons
 addSegBtn.addEventListener("click", () => createSegRow({}));
 clearSegBtn.addEventListener("click", () => {
-    segTbody.innerHTML = "";
-    segIndex = 0;
-    updateTotalLuas();
-    updateTotalPanjang();
-    hasilBox.classList.add("d-none");
+    if (confirm("Yakin ingin menghapus semua segmen?")) {
+        segTbody.innerHTML = "";
+        segIndex = 0;
+        updateTotalLuas();
+        updateTotalPanjang();
+        hasilBox.classList.add("d-none");
+    }
 });
 
 // Reset luas manual
 resetLuasBtn.addEventListener("click", () => {
-    luasManualInput.value = "";
-    luasManualInput.classList.remove("is-valid","is-invalid");
-    hasilBox.classList.add("d-none");
+    if (confirm("Yakin ingin mereset luas manual?")) {
+        luasManualInput.value = "";
+        luasManualInput.classList.remove("is-valid","is-invalid");
+        hasilBox.classList.add("d-none");
+    }
 });
 
 // common numeric input behavior: validation & formatting on blur + live validation
 const commonNumericInputs = [luasManualInput, bjInput, tebalInput, wasteInput];
+const INPUT_LIMITS = {
+    bj: { min: 1.0, max: 5.0, label: "Berat Jenis" },
+    tebal: { min: 0.5, max: 20.0, label: "Ketebalan" },
+    waste: { min: 0, max: 50, label: "Spare" },
+    luas: { min: 0, max: 1000000, label: "Luas" }
+};
+
+function validateInputWithLimits(input, limits) {
+    const value = parseFlexibleNumber(input.value);
+    if (input.value === "" || isNaN(value)) return null;
+    if (value < limits.min || value > limits.max) {
+        return `${limits.label} harus antara ${limits.min} - ${limits.max}`;
+    }
+    return null;
+}
+
 commonNumericInputs.forEach(inp => {
     inp.addEventListener("input", () => {
         const n = parseFlexibleNumber(inp.value);
@@ -380,9 +582,12 @@ function createBlockRow() {
 
     const tr = document.createElement("tr");
 
+    // Sanitize user inputs to prevent XSS
+    const safePlaceholder = escapeHtml("Contoh: Manhole");
+
     tr.innerHTML = `
         <td class="small text-muted">${blockIndex}</td>
-        <td><input type="text" class="form-control form-control-sm" placeholder="Contoh: Manhole"></td>
+        <td><input type="text" class="form-control form-control-sm" placeholder="${safePlaceholder}"></td>
         <td><input type="text" inputmode="decimal" class="form-control form-control-sm numeric-input block-p" placeholder="Panjang"></td>
         <td><input type="text" inputmode="decimal" class="form-control form-control-sm numeric-input block-l" placeholder="Lebar"></td>
         <td class="text-end block-luas small">0.00</td>
@@ -448,16 +653,24 @@ addBlockBtn.addEventListener("click", createBlockRow);
 
 // tombol clear
 clearBlockBtn.addEventListener("click", () => {
-    blockTbody.innerHTML = "";
-    blockIndex = 0;
-    updateTotalBlock();
-    autoCalculatePreview();
+    if (confirm("Yakin ingin menghapus semua blockout?")) {
+        blockTbody.innerHTML = "";
+        blockIndex = 0;
+        updateTotalBlock();
+        autoCalculatePreview();
+        clearStorage();
+    }
 });
 
-// initialize
-setMode("luas");
-updateTotalLuas();
-updateTotalPanjang();
+// initialize - load from localStorage or use default
+const hasStoredData = localStorage.getItem(STORAGE_KEY) !== null;
+if (hasStoredData) {
+    loadFromStorage();
+} else {
+    setMode("luas");
+    updateTotalLuas();
+    updateTotalPanjang();
+}
 
 // =============================
 // EXPORT TO EXCEL FEATURE
@@ -507,9 +720,9 @@ exportBtn.addEventListener("click", function () {
 
         segTbody.querySelectorAll("tr").forEach(tr => {
 
-            const profilAwal = tr.cells[1].querySelector("input").value;
-            const profilAkhir = tr.cells[2].querySelector("input").value;
-			const keterangan = tr.cells[3].querySelector("input").value || "-";
+            const profilAwal = sanitizeForExport(tr.cells[1].querySelector("input").value);
+            const profilAkhir = sanitizeForExport(tr.cells[2].querySelector("input").value);
+			const keterangan = sanitizeForExport(tr.cells[3].querySelector("input").value) || "-";
             const l1 = parseFlexibleNumber(tr.querySelector(".seg-l1").value) || 0;
             const l2 = parseFlexibleNumber(tr.querySelector(".seg-l2").value) || 0;
             const avg = (l1 + l2) / 2;
@@ -549,7 +762,7 @@ let totalBlockExport = 0;
 
 blockTbody.querySelectorAll("tr").forEach(tr => {
 
-    const ket = tr.cells[1].querySelector("input").value || "-";
+    const ket = sanitizeForExport(tr.cells[1].querySelector("input").value) || "-";
     const p = parseFlexibleNumber(tr.querySelector(".block-p").value) || 0;
     const l = parseFlexibleNumber(tr.querySelector(".block-l").value) || 0;
     const luas = p * l;
